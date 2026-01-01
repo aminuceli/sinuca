@@ -10,7 +10,7 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ==================================================================
-// 1. CONSTANTES E CONFIGURAÇÕES
+// 1. CONSTANTES (Configuração da Mesa e Física)
 // ==================================================================
 const C = {
   TABLE_WIDTH: 800,
@@ -27,7 +27,7 @@ const C = {
   RESTITUTION: 0.985,
   CUSHION_RESTITUTION: 0.92,
   CUSHION_TANGENTIAL_LOSS: 0.985,
-  MIN_VELOCITY: 0.02, 
+  MIN_VELOCITY: 0.02, // Reduzido para garantir parada total
   PHYSICS_STEPS: 8,
 
   ballColors: {
@@ -37,7 +37,7 @@ const C = {
 };
 
 // ==================================================================
-// 2. MOTOR DE FÍSICA
+// 2. FÍSICA (Motor de Colisão Integrado)
 // ==================================================================
 const Physics = {
     resolveCollision: function(b1, b2) {
@@ -75,18 +75,19 @@ const Physics = {
     },
 
     stepPhysics: function(balls, game, audioQueue) {
-        // Movimento
+        // 1. Movimento
         balls.forEach(b => {
-            if (b.state === 'pocketed') return;
+            // Bolas encaçapadas ou em modo "posicionamento" não se movem sozinhas
+            if (b.state === 'pocketed' || b.state === 'placing') return;
             
             b.x += b.vx; b.y += b.vy;
-            b.vx *= 0.99; b.vy *= 0.99; 
+            b.vx *= 0.99; b.vy *= 0.99; // Atrito
             
             if (Math.abs(b.vx) < C.MIN_VELOCITY) b.vx = 0;
             if (Math.abs(b.vy) < C.MIN_VELOCITY) b.vy = 0;
         });
 
-        // Tabelas
+        // 2. Colisão com Tabelas
         const minX = C.OFFSET_X + C.BALL_RADIUS;
         const maxX = C.TABLE_WIDTH - C.OFFSET_X - C.BALL_RADIUS;
         const minY = C.OFFSET_Y + C.BALL_RADIUS;
@@ -106,10 +107,11 @@ const Physics = {
             }
         });
 
-        // Colisão Bola x Bola
+        // 3. Colisão Bola x Bola
         for (let i = 0; i < balls.length; i++) {
             for (let j = i + 1; j < balls.length; j++) {
-                // SÓ COLIDE SE AMBAS ESTIVEREM ATIVAS
+                // IMPORTANTE: Só colide se AMBAS forem 'active'.
+                // Se a branca for 'placing' (fantasma), ela atravessa tudo sem bater.
                 if (balls[i].state === 'active' && balls[j].state === 'active') {
                     if (Physics.resolveCollision(balls[i], balls[j])) {
                         if (!game.shot.firstContactId && balls[i].id === 0) game.shot.firstContactId = balls[j].id;
@@ -124,7 +126,7 @@ const Physics = {
             }
         }
 
-        // Caçapas
+        // 4. Caçapas
         const pockets = [
             {x: C.OFFSET_X, y: C.OFFSET_Y}, {x: 400, y: C.OFFSET_Y}, {x: 800-C.OFFSET_X, y: C.OFFSET_Y},
             {x: C.OFFSET_X, y: 400-C.OFFSET_Y}, {x: 400, y: 400-C.OFFSET_Y}, {x: 800-C.OFFSET_X, y: 400-C.OFFSET_Y}
@@ -146,7 +148,7 @@ const Physics = {
 };
 
 // ==================================================================
-// 3. REGRAS DO JOGO
+// 3. REGRAS (Lógica de Jogo)
 // ==================================================================
 function activeBallsByType(balls, type) {
     return balls.filter(b => b.type === type && b.state === 'active');
@@ -261,16 +263,15 @@ const Rules = {
 };
 
 // ==================================================================
-// 4. SUPER BOT (IA)
+// 4. SUPER BOT V4 (Inteligência Artificial)
 // ==================================================================
-const AIM_DEPTH = 5; 
 const POCKETS = [
-    { x: C.OFFSET_X - AIM_DEPTH, y: C.OFFSET_Y - AIM_DEPTH }, 
-    { x: C.TABLE_WIDTH / 2, y: C.OFFSET_Y - AIM_DEPTH * 2 }, 
-    { x: C.TABLE_WIDTH - C.OFFSET_X + AIM_DEPTH, y: C.OFFSET_Y - AIM_DEPTH }, 
-    { x: C.OFFSET_X - AIM_DEPTH, y: C.TABLE_HEIGHT - C.OFFSET_Y + AIM_DEPTH }, 
-    { x: C.TABLE_WIDTH / 2, y: C.TABLE_HEIGHT - C.OFFSET_Y + AIM_DEPTH * 2 }, 
-    { x: C.TABLE_WIDTH - C.OFFSET_X + AIM_DEPTH, y: C.TABLE_HEIGHT - C.OFFSET_Y + AIM_DEPTH } 
+    { x: C.OFFSET_X - 5, y: C.OFFSET_Y - 5 }, 
+    { x: C.TABLE_WIDTH / 2, y: C.OFFSET_Y - 8 }, 
+    { x: C.TABLE_WIDTH - C.OFFSET_X + 5, y: C.OFFSET_Y - 5 }, 
+    { x: C.OFFSET_X - 5, y: C.TABLE_HEIGHT - C.OFFSET_Y + 5 }, 
+    { x: C.TABLE_WIDTH / 2, y: C.TABLE_HEIGHT - C.OFFSET_Y + 8 }, 
+    { x: C.TABLE_WIDTH - C.OFFSET_X + 5, y: C.TABLE_HEIGHT - C.OFFSET_Y + 5 } 
 ];
 
 function normalizeGroup(g) {
@@ -335,6 +336,7 @@ function simulateShot(game, angle, force) {
     let pocketedIds = [];
     let scratch = false;
 
+    // Simula 300 frames para o futuro
     for(let f=0; f<300; f++) {
         simBalls.forEach(b => {
             if(b.state !== 'active') return;
@@ -461,7 +463,6 @@ function updateBot(game, roomId) {
     }
     if (game.shot.inProgress) { game.botState = 'idle'; return; }
     
-    // VERIFICA SE ESTÁ SE MEXENDO
     const isMoving = game.balls.some(b => b.state === 'falling' || Math.abs(b.vx) > 0 || Math.abs(b.vy) > 0);
     if (isMoving) return;
 
@@ -501,7 +502,7 @@ function updateBot(game, roomId) {
 }
 
 // ==================================================================
-// 5. GERENCIAMENTO DE SALAS E SOCKET
+// 5. SOCKET
 // ==================================================================
 const rooms = {};
 
@@ -591,8 +592,7 @@ io.on('connection', (socket) => {
             if (ny < m) ny = m; if (ny > C.TABLE_HEIGHT - m) ny = C.TABLE_HEIGHT - m;
             
             white.x = nx; white.y = ny; white.vx = 0; white.vy = 0; 
-            // AQUI O ESTADO VIRA ACTIVE (REAL)
-            white.state = 'active'; 
+            white.state = 'active'; // AQUI ELA VOLTA A SER REAL
             game.phase = 'playing';
             
             io.to(socket.roomId).emit('gameState', game.balls);
@@ -635,7 +635,6 @@ setInterval(() => {
     Object.keys(rooms).forEach(rid => {
         const game = rooms[rid];
         
-        // BOT POSICIONA BOLA (Simula placeCueBall)
         if (game.phase === 'placing_cue' && game.currentTurn === 'p2' && game.players.p2.id === 'BOT') {
              const white = game.balls.find(b => b.id === 0);
              if (white) {
@@ -652,7 +651,6 @@ setInterval(() => {
 
         Physics.stepPhysics(game.balls, game, game.audioEvents);
         
-        // CORREÇÃO: VERIFICAÇÃO ESTRITA DE MOVIMENTO
         let isMoving = game.balls.some(b => b.state === 'falling' || Math.abs(b.vx) > 0 || Math.abs(b.vy) > 0);
         
         if (game.shot.inProgress && !isMoving) {
@@ -664,7 +662,7 @@ setInterval(() => {
                 game.phase = 'placing_cue';
                 const white = game.balls.find(b => b.id === 0);
                 if(white) {
-                    // ESTADO 'placing' = FANTASMA (NÃO COLIDE)
+                    // DEFINE COMO PLACING (FANTASMA) PARA NÃO COLIDIR
                     white.state = 'placing'; 
                     white.x = 200; white.y = 200; 
                     white.vx = 0; white.vy = 0;
