@@ -2,38 +2,46 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Sinuca PRO Multi-Salas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <title>Sinuca PRO Mobile</title>
+  
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
+  <div id="rotate-warning">
+      <div class="rotate-icon">🔄</div>
+      <p>Para melhor experiência,<br>gire seu celular.</p>
+  </div>
+
   <div id="lobby-screen">
       <div class="lobby-container">
-          
           <div class="lobby-box">
               <h1>SINUCA <span>PRO</span></h1>
-              <p>Escolha seu modo de jogo</p>
+              <p>Mobile Edition</p>
               
               <button id="btnBot" class="btn-neon full-width btn-purple" style="margin-bottom: 20px;">
-                  🤖 JOGAR VS CPU
+                  🤖 VS CPU
               </button>
               
               <div style="width:100%; height:1px; background:rgba(255,255,255,0.1); margin: 15px 0;"></div>
 
-              <p style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">MULTIPLAYER ONLINE</p>
               <input type="text" id="roomInput" placeholder="NOME DA SALA" maxlength="12">
-              <button id="btnJoin" class="btn-neon full-width">CRIAR / ENTRAR</button>
+              <button id="btnJoin" class="btn-neon full-width">JOGAR ONLINE</button>
               
-              <div id="lobbyStatus">Conectado ao servidor</div>
+              <div id="lobbyStatus">Conectado</div>
           </div>
           
           <div class="lobby-list-box">
-              <h3>SALAS DISPONÍVEIS</h3>
+              <h3>SALAS ATIVAS</h3>
               <div id="activeRoomsList" class="rooms-scroll">
-                  <div class="empty-list">Carregando salas...</div>
+                  <div class="empty-list">Carregando...</div>
               </div>
           </div>
       </div>
@@ -41,68 +49,44 @@
 
   <div id="game-screen" class="hidden">
     
-    <div class="topbar">
-      <div class="brand">
-        <div class="title">SINUCA PRO <span>NEON</span></div>
-        <div class="subtitle" id="roleLine">Sala: -</div>
-      </div>
-      <div class="controls">
-        <button class="btn btn-red" id="btnLeave">SAIR DA SALA</button>
-        <button class="btn" id="btnReset">Reiniciar</button>
-      </div>
+    <div class="hud-mobile">
+        <div class="player-pill p1-pill" id="p1Card">
+            <span class="dot p1"></span>
+            <div class="info">
+                <div class="name">JOGADOR 1</div>
+                <div class="group" id="p1Group">-</div>
+            </div>
+            <div class="score" id="p1Score">0</div>
+        </div>
+
+        <div class="center-pill">
+            <div id="phaseTitle">AGUARDE</div>
+            <div id="phaseMsg" style="font-size: 0.6rem; opacity: 0.8;">...</div>
+        </div>
+
+        <div class="player-pill p2-pill" id="p2Card">
+            <div class="score" id="p2Score">0</div>
+            <div class="info" style="text-align: right;">
+                <div class="name">JOGADOR 2</div>
+                <div class="group" id="p2Group">-</div>
+            </div>
+            <span class="dot p2"></span>
+        </div>
     </div>
 
-    <div class="hud">
-      <div class="card" id="p1Card">
-        <div style="width: 100%;">
-          <div class="phead">
-            <div class="pname"><span class="dot p1"></span>JOGADOR 1</div>
-            <span class="turnBadge" id="p1Turn">AGUARDE</span>
-          </div>
-          <div class="stats-row">
-            <span class="group-info" id="p1Group">GRUPO: -</span>
-            <span class="score-big" id="p1Score">0</span>
-          </div>
-          <div class="ball-rack" id="p1Rack"></div>
-        </div>
-      </div>
+    <div class="alert-mobile" id="foulMsg"></div>
 
-      <div class="card centerbox">
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <div class="statusTitle" id="phaseTitle">CARREGANDO</div>
-          <div class="statusMsg" id="phaseMsg">Aguardando...</div>
-        </div>
-        <div class="alert" id="foulMsg"></div>
-      </div>
-
-      <div class="card" id="p2Card">
-        <div style="width: 100%;">
-          <div class="phead">
-            <div class="pname"><span class="dot p2"></span>JOGADOR 2</div>
-            <span class="turnBadge" id="p2Turn">AGUARDE</span>
-          </div>
-          <div class="stats-row">
-            <span class="group-info" id="p2Group">GRUPO: -</span>
-            <span class="score-big" id="p2Score">0</span>
-          </div>
-          <div class="ball-rack" id="p2Rack"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hint">
-      Arraste para tacar • Segure <strong>SHIFT</strong> para Precisão
+    <div class="controls-mobile">
+        <button class="btn-icon" id="btnReset">↺</button>
+        <button class="btn-icon btn-red" id="btnLeave">✕</button>
     </div>
 
     <div class="canvas-container">
-        <canvas id="gameCanvas"></canvas>
-        <canvas id="glCanvas"></canvas>
-        
-        <div id="game-overlay" class="hidden">
+        <canvas id="gameCanvas"></canvas> <canvas id="glCanvas"></canvas>   <div id="game-overlay" class="hidden">
             <div class="overlay-content">
-                <h1 id="overlay-title">TITULO</h1>
-                <p id="overlay-msg">Mensagem...</p>
-                <button id="btn-lobby" class="btn-neon">VOLTAR AO LOBBY</button>
+                <h1 id="overlay-title">FIM</h1>
+                <p id="overlay-msg">...</p>
+                <button id="btn-lobby" class="btn-neon">VOLTAR</button>
             </div>
         </div>
     </div>
