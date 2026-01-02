@@ -48,6 +48,13 @@ socket.on('connect', () => {
     }
 });
 
+// --- FUNÇÃO PARA TELA CHEIA (MOBILE) ---
+function goFullscreen() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) { elem.requestFullscreen().catch(() => {}); }
+    else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+}
+
 // --- LÓGICA DO LOBBY ---
 socket.on('roomList', (rooms) => {
     if(!activeRoomsList) return;
@@ -77,6 +84,7 @@ socket.on('roomList', (rooms) => {
 
     document.querySelectorAll('.btn-join-small').forEach(btn => {
         btn.addEventListener('click', (e) => {
+            goFullscreen(); // Tenta tela cheia ao clicar
             const roomToJoin = e.target.getAttribute('data-room');
             joinGame(roomToJoin);
         });
@@ -85,6 +93,7 @@ socket.on('roomList', (rooms) => {
 
 if(btnJoin) {
     btnJoin.addEventListener('click', () => {
+        goFullscreen(); // Tenta tela cheia
         const roomName = roomInput.value.trim();
         if(roomName.length < 3) {
             lobbyStatus.textContent = "Nome muito curto (min 3 letras).";
@@ -97,6 +106,7 @@ if(btnJoin) {
 
 if(btnBot) {
     btnBot.addEventListener('click', () => {
+        goFullscreen(); // Tenta tela cheia
         if(lobbyStatus) lobbyStatus.textContent = "Criando partida contra CPU...";
         socket.emit('createBotRoom');
     });
@@ -204,21 +214,45 @@ socket.on('syncAim', (data) => {
 document.getElementById('btnReset').addEventListener('click', () => socket.emit('reset'));
 
 
-// --- CONTROLES ---
+// --- CONTROLES (TECLADO E MOUSE/TOUCH) ---
 window.addEventListener('keydown', (e) => { keys[e.code] = true; });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-// === MOUSE DOWN (CORRIGIDO E UNIFICADO) ===
+// === CORREÇÃO PARA CELULAR: TOUCH EVENTS ===
+function touchHandler(event) {
+    if (event.touches.length > 1) return; // Ignora zoom com dois dedos
+    
+    const touch = event.changedTouches[0];
+    const type = {
+        "touchstart": "mousedown",
+        "touchmove": "mousemove",
+        "touchend": "mouseup"
+    }[event.type];
+
+    const mouseEvent = new MouseEvent(type, {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        bubbles: true
+    });
+
+    if (type === "mousemove") event.preventDefault(); 
+    canvas.dispatchEvent(mouseEvent);
+}
+canvas.addEventListener("touchstart", touchHandler, {passive: false});
+canvas.addEventListener("touchmove", touchHandler, {passive: false});
+canvas.addEventListener("touchend", touchHandler, {passive: false});
+
+
+// MOUSE DOWN UNIFICADO
 canvas.addEventListener('mousedown', (e) => {
     if(!currentRoom) return;
     
-    // 1. LÓGICA DE POSICIONAR BOLA (PRIORIDADE)
+    // 1. POSICIONAR BOLA
     if (GameState.meta && GameState.meta.phase === 'placing_cue') {
         const turnKey = GameState.meta.currentTurn;
         const activePlayerId = GameState.meta.players[turnKey]?.id;
         const currentId = myId || socket.id;
 
-        // Se for minha vez, envio a posição
         if (activePlayerId === currentId) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -229,15 +263,14 @@ canvas.addEventListener('mousedown', (e) => {
             
             const { OFFSET_X, OFFSET_Y } = CONSTANTS;
             socket.emit('placeCueBall', { 
-                x: mx - OFFSET_X, // Envia sem o offset visual, pois o server vai validar
+                x: mx - OFFSET_X, 
                 y: my - OFFSET_Y 
             });
         }
-        // Se estiver posicionando, não deixa arrastar taco
         return; 
     }
 
-    // 2. LÓGICA DE TACADA (ORIGINAL)
+    // 2. TACADA
     if (GameState.meta) {
         const turnKey = GameState.meta.currentTurn;
         const activePlayerId = GameState.meta.players[turnKey]?.id;
