@@ -1,0 +1,12 @@
+export const CONSTANTS = {
+    RAIL_SIZE: 50,
+    CUSHION_SIZE: 15,
+    PLAY_AREA_W: 800,
+    PLAY_AREA_H: 400,
+    BALL_RADIUS: 11.5,
+    OFFSET_X: 65, // RAIL_SIZE + CUSHION_SIZE
+    OFFSET_Y: 65,
+    TOTAL_W: 930, // 800 + 65*2
+    TOTAL_H: 530, // 400 + 65*2
+    POCKET_RADIUS: 28
+};
